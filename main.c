@@ -204,6 +204,18 @@ const uint32_t LEAF_NODE_MAX_CELLS = LEAF_NODE_SPACE_FOR_CELLS / LEAF_NODE_CELL_
 const uint32_t LEAF_NODE_RIGHT_SPLIT_COUNT = (LEAF_NODE_MAX_CELLS + 1) / 2;
 const uint32_t LEAF_NODE_LEFT_SPLIT_COUNT = (LEAF_NODE_MAX_CELLS + 1) - LEAF_NODE_RIGHT_SPLIT_COUNT;
 
+// Internal Node Header Layout
+const uint32_t INTERNAL_NODE_NUM_KEYS_SIZE = sizeof(uint32_t);
+const uint32_t INTERNAL_NODE_NUM_KEYS_OFFSET = COMMON_NODE_HEADER_SIZE;
+const uint32_t INTERNAL_NODE_RIGHT_CHILD_SIZE = sizeof(uint32_t);
+const uint32_t INTERNAL_NODE_RIGHT_CHILD_OFFSET = INTERNAL_NODE_NUM_KEYS_OFFSET + INTERNAL_NODE_NUM_KEYS_SIZE;
+const uint32_t INTERNAL_NODE_HEADER_SIZE = COMMON_NODE_HEADER_SIZE + INTERNAL_NODE_NUM_KEYS_SIZE + INTERNAL_NODE_RIGHT_CHILD_SIZE;
+
+// Internal Node Body Layout
+const uint32_t INTERNAL_NODE_KEY_SIZE = sizeof(uint32_t);
+const uint32_t INTERNAL_NODE_CHILD_SIZE = sizeof(uint32_t);
+const uint32_t INTERNAL_NODE_CELL_SIZE = INTERNAL_NODE_CHILD_SIZE + INTERNAL_NODE_KEY_SIZE;
+
 NodeType get_node_type(void* node) {
 	uint8_t value = *((uint8_t*)(node + NODE_TYPE_OFFSIZE));
 	return (NodeType)value;
@@ -243,6 +255,18 @@ void* leaf_node_value(void* node, uint32_t cell_num) {
 void initialize_leaf_node(void* node) {
 	set_node_type(node, NODE_LEAF);
 	*leaf_node_num_cells(node) = 0;
+}
+
+uint32_t* internal_node_num_keys(void* node) {
+	return node + INTERNAL_NODE_NUM_KEYS_OFFSET;
+}
+
+uint32_t* internal_node_right_child(void* node) {
+	return node + INTERNAL_NODE_RIGHT_CHILD_OFFSET;
+}
+
+uint32_t* internal_node_cell(void* node, uint32_t cell_num) {
+	return node + INTERNAL_NODE_HEADER_SIZE + cell_num * INTERNAL_NODE_CELL_SIZE;
 }
 
 
@@ -338,8 +362,8 @@ void leaf_node_insert(Cursor* cursor, uint32_t key, Row* value) {
 	uint32_t num_cells = *leaf_node_num_cells(node);
 	if (num_cells >= LEAF_NODE_MAX_CELLS) {
 		// Node full
-		printf("Need to implement splitting a leaf node.\n");
-		exit(EXIT_FAILURE);
+		leaf_node_split_and_insert(cursor, key, value);
+		return;
 	}
 
 	if (cursor->cell_num < num_cells) {
@@ -547,9 +571,6 @@ PrepareResult prepare_statement(InputBuffer* input_buffer, Statement* statement)
 ExecuteResult execute_insert(Statement *statement, Table* table) {
 	void* node = get_page(table->pager, table->root_page_num);
 	uint32_t num_cells = (*leaf_node_num_cells(node));
-	if (num_cells >= LEAF_NODE_MAX_CELLS) {
-		return EXECUTE_TABLE_FULL;
-	}
 
 	Row* row_to_insert = &(statement->row_to_insert);
 	uint32_t key_to_insert = row_to_insert->id;
