@@ -2,3 +2,4 @@ db
 .vscode
 .bundle
 bin
+test.db
