@@ -6,4 +6,4 @@ test:
 	bundle exec rspec
 
 clean:
-	rm db
+	rm -f db test.db
